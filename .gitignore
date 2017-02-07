@@ -1,0 +1,4 @@
+ProtobufAutoGenerator/bin
+ProtobufAutoGenerator/obj
+.vs
+*.csproj.user
