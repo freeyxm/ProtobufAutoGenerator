@@ -28,9 +28,22 @@ namespace ProtobufAutoGenerator
             string protoDir = args[0];
             string outputDir = args[1];
 
+            if (!Directory.Exists(protoDir))
+            {
+                Console.WriteLine("<proto_dir> not exists: {0}", protoDir);
+                return;
+            }
+
+            if (!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+            }
+
             ProcessProtos(protoDir, outputDir);
             //Console.Read();
         }
+
+        static readonly string MSG_TYPE_PROTO = "gameMessageTypeMsg.proto";
 
         static void ProcessProtos(string protoDir, string outputDir)
         {
@@ -41,13 +54,13 @@ namespace ProtobufAutoGenerator
             ProtoMsg protoMsg = new ProtoMsg();
             protoMsg.SetMsgType(gmt);
 
-            Console.WriteLine("Load gameMessageTypeMsg.proto");
-            gmt.LoadProtoFile(protoDir + "gameMessageTypeMsg.proto");
+            Console.WriteLine("Load " + MSG_TYPE_PROTO);
+            gmt.LoadProtoFile(protoDir + MSG_TYPE_PROTO);
             Console.WriteLine();
 
             foreach (string file in files)
             {
-                if (file.EndsWith("gameMessageTypeMsg.proto"))
+                if (file.EndsWith(MSG_TYPE_PROTO))
                     continue;
 
                 Console.WriteLine("Process {0}", file.Substring(file.LastIndexOf('/') + 1));

@@ -120,7 +120,7 @@ namespace ProtobufAutoGenerator.Client
                 for (int i = 0; i < msg.attrs.Count; ++i)
                 {
                     var attr = msg.attrs[i];
-                    var pname = Utility.ToUpperCaseFirst(attr.name);
+                    var pname = ConvertAttrName(attr.name);
                     if (attr.isList)
                         WriteLine(string.Format("msg.{0}.AddRange({1});", pname, attr.name), indent);
                     else
@@ -178,6 +178,24 @@ namespace ProtobufAutoGenerator.Client
                 temp.Append(char.ToUpper(ch));
             }
             return temp.ToString();
+        }
+
+        private static string ConvertAttrName(string name)
+        {
+            if (name.Contains("_"))
+            {
+                StringBuilder temp = new StringBuilder();
+                var values = name.Split('_');
+                for (int i = 0; i < values.Length; ++i)
+                {
+                    temp.Append(Utility.ToUpperCaseFirst(values[i].ToLower()));
+                }
+                return temp.ToString();
+            }
+            else
+            {
+                return Utility.ToUpperCaseFirst(name);
+            }
         }
 
         protected static string ConvertType(ProtoParser.AttrInfo attr)

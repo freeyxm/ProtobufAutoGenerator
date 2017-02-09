@@ -17,7 +17,7 @@ namespace ProtobufAutoGenerator.Core
             public bool isList;
             public int index;
 
-            private static Regex regex = new Regex("\\s+(\\w+\\s+){0,1}(\\w+)\\s+(\\w+)\\s+=\\s+([0-9]+);(//.+){0,}", RegexOptions.Compiled);
+            private static Regex regex = new Regex("\\s+(\\w+\\s+){0,1}(\\w+)\\s+(\\w+)\\s+=\\s+([0-9]+);\\s*(//(.+)){0,}", RegexOptions.Compiled);
 
             public static AttrInfo Parse(string text)
             {
@@ -31,9 +31,7 @@ namespace ProtobufAutoGenerator.Core
                     attrInfo.type = match.Groups[2].Value;
                     attrInfo.name = match.Groups[3].Value;
                     attrInfo.index = int.Parse(match.Groups[4].Value);
-                    attrInfo.comment = match.Groups[5].Value;
-                    if (attrInfo.comment.StartsWith("//"))
-                        attrInfo.comment = attrInfo.comment.Substring(2);
+                    attrInfo.comment = match.Groups[6].Value;
                 }
                 return attrInfo;
             }
