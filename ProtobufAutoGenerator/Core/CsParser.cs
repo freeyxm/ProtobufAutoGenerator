@@ -45,13 +45,13 @@ namespace ProtobufAutoGenerator.Core
         private List<Method> m_delegates = new List<Method>();
         private List<string> m_using = new List<string>();
 
-        private static Regex m_fieldRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}(static\\s+){0,1}(const\\s+){0,1}(readonly\\s+){0,1}([a-zA-Z0-9_]+)\\s+([a-zA-Z0-9_]+)\\s*(=\\s*(\\S+)){0,1};\\s*(//.+){0,1}", RegexOptions.Compiled);
-        private static Regex m_delegateRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}((delegate)\\s+){0,1}([a-zA-Z0-9_]+)\\s+([a-zA-Z0-9_]+)\\s*\\(.*\\)\\s*;\\s*", RegexOptions.Compiled);
-        private static Regex m_methodRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}((static)\\s+){0,1}([a-zA-Z0-9_]+)\\s+([a-zA-Z0-9_]+)\\s*\\(", RegexOptions.Compiled);
-        private static Regex m_argRegex = new Regex("\\s*((ref|out)\\s+){0,1}([a-zA-Z0-9_<>]+)\\s+([a-zA-Z0-9_]+)\\s*(=\\s*(\\S+)){0,1}", RegexOptions.Compiled);
-        private static Regex m_usingRegex = new Regex("using\\s+([a-zA-Z0-9\\.]+)\\s*;\\s*", RegexOptions.Compiled);
-        private static Regex m_namespaceRegex = new Regex("namespace\\s+([a-zA-Z0-9\\.]+)\\s*;\\s*", RegexOptions.Compiled);
-        private static Regex m_classNameRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}class\\s+([a-zA-Z0-9\\.]+)(\\s*\\{.*|\\s+.*){0,1}", RegexOptions.Compiled);
+        private static Regex m_fieldRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}(static\\s+){0,1}(const\\s+){0,1}(readonly\\s+){0,1}([a-zA-Z0-9_<>\\.]+)\\s+([a-zA-Z0-9_]+)\\s*(=\\s*(\\S+)){0,1};\\s*(//.+){0,1}", RegexOptions.Compiled);
+        private static Regex m_delegateRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}((delegate)\\s+){0,1}([a-zA-Z0-9_<>\\.]+)\\s+([a-zA-Z0-9_]+)\\s*\\(.*\\)\\s*;\\s*", RegexOptions.Compiled);
+        private static Regex m_methodRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}((static)\\s+){0,1}([a-zA-Z0-9_<>\\.]+)\\s+([a-zA-Z0-9_]+)\\s*\\(", RegexOptions.Compiled);
+        private static Regex m_argRegex = new Regex("\\s*((ref|out)\\s+){0,1}([a-zA-Z0-9_<>\\.]+)\\s+([a-zA-Z0-9_]+)\\s*(=\\s*(\\S+)){0,1}", RegexOptions.Compiled);
+        private static Regex m_usingRegex = new Regex("using\\s+([a-zA-Z0-9_\\.]+)\\s*;\\s*", RegexOptions.Compiled);
+        private static Regex m_namespaceRegex = new Regex("namespace\\s+([a-zA-Z0-9_\\.]+)\\s*({\\s*){0,1}", RegexOptions.Compiled);
+        private static Regex m_classNameRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}class\\s+([a-zA-Z0-9_\\.]+)(\\s*\\{.*|\\s+.*){0,1}", RegexOptions.Compiled);
 
         public void Parse(string filePath)
         {
@@ -98,6 +98,9 @@ namespace ProtobufAutoGenerator.Core
 
                         // 解析参数列表
                         ParseArgs(reader, ref line, ref lineIndex, ref method);
+
+                        if (line == ";")
+                            line = null;
 
                         m_delegates.Add(method);
                     }
