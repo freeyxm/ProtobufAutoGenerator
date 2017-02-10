@@ -46,9 +46,12 @@ namespace ProtobufAutoGenerator.Core
         private List<string> m_using = new List<string>();
 
         private static Regex m_fieldRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}(static\\s+){0,1}(const\\s+){0,1}(readonly\\s+){0,1}([a-zA-Z0-9_]+)\\s+([a-zA-Z0-9_]+)\\s*(=\\s*(\\S+)){0,1};\\s*(//.+){0,1}", RegexOptions.Compiled);
-        private static Regex m_methodRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}((static|delegate)\\s+){0,1}([a-zA-Z0-9_]+)\\s+([a-zA-Z0-9_]+)\\s*\\(", RegexOptions.Compiled);
+        private static Regex m_delegateRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}((delegate)\\s+){0,1}([a-zA-Z0-9_]+)\\s+([a-zA-Z0-9_]+)\\s*\\(.*\\)\\s*;\\s*", RegexOptions.Compiled);
+        private static Regex m_methodRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}((static)\\s+){0,1}([a-zA-Z0-9_]+)\\s+([a-zA-Z0-9_]+)\\s*\\(", RegexOptions.Compiled);
         private static Regex m_argRegex = new Regex("\\s*((ref|out)\\s+){0,1}([a-zA-Z0-9_<>]+)\\s+([a-zA-Z0-9_]+)\\s*(=\\s*(\\S+)){0,1}", RegexOptions.Compiled);
         private static Regex m_usingRegex = new Regex("using\\s+([a-zA-Z0-9\\.]+)\\s*;\\s*", RegexOptions.Compiled);
+        private static Regex m_namespaceRegex = new Regex("namespace\\s+([a-zA-Z0-9\\.]+)\\s*;\\s*", RegexOptions.Compiled);
+        private static Regex m_classNameRegex = new Regex("\\s*((private|protected|public)\\s+){0,1}class\\s+([a-zA-Z0-9\\.]+)(\\s*\\{.*|\\s+.*){0,1}", RegexOptions.Compiled);
 
         public void Parse(string filePath)
         {
@@ -57,11 +60,13 @@ namespace ProtobufAutoGenerator.Core
             using (var reader = File.OpenText(filePath))
             {
                 string line = null;
+                int lineIndex = 0;
                 while (!string.IsNullOrEmpty(line) || !reader.EndOfStream)
                 {
                     if (string.IsNullOrEmpty(line))
                     {
                         line = reader.ReadLine();
+                        lineIndex++;
                     }
 
                     Match match;
@@ -84,62 +89,32 @@ namespace ProtobufAutoGenerator.Core
                         m_fields.Add(field);
                         line = null;
                     }
-                    else if ((match = m_methodRegex.Match(line)).Success)
+                    else if ((match = m_delegateRegex.Match(line)).Success)
                     {
-                        string decorator = match.Groups[3].Value.Trim();
-                        bool isDelegate = (decorator == "delegate");
-
                         Method method = new Method();
                         method.scope = match.Groups[1].Value.Trim();
-                        method.isStatic = (decorator == "static");
                         method.retType = match.Groups[5].Value;
                         method.name = match.Groups[6].Value;
 
-                        StringBuilder temp = new StringBuilder();
+                        // 解析参数列表
+                        ParseArgs(reader, ref line, ref lineIndex, ref method);
+
+                        m_delegates.Add(method);
+                    }
+                    else if ((match = m_methodRegex.Match(line)).Success)
+                    {
+                        Method method = new Method();
+                        method.scope = match.Groups[1].Value.Trim();
+                        method.isStatic = match.Groups[4].Value != "";
+                        method.retType = match.Groups[5].Value;
+                        method.name = match.Groups[6].Value;
 
                         // 解析参数列表
-                        int frontIndex = -1;
-                        int backIndex = line.IndexOf(')');
-                        if (backIndex > 0)
-                        {
-                            frontIndex = line.IndexOf('(');
-                            string args = line.Substring(frontIndex + 1, backIndex - frontIndex - 1);
-                            ParseArgs(args.Trim(), ref method.args);
-                            line = line.Substring(backIndex + 1).Trim();
-                        }
-                        else
-                        {
-                            frontIndex = line.IndexOf('(');
-                            temp.Clear();
-                            temp.Append(line.Substring(frontIndex + 1));
-                            line = "";
-
-                            while (!reader.EndOfStream)
-                            {
-                                line = reader.ReadLine();
-                                backIndex = line.IndexOf(')');
-                                if (backIndex > 0)
-                                {
-                                    temp.Append(line.Substring(backIndex));
-                                    line = line.Substring(backIndex + 1).Trim();
-                                    break;
-                                }
-                                else
-                                {
-                                    temp.Append(line);
-                                    line = "";
-                                }
-                            }
-
-                            temp.Replace("\n", "");
-                            temp.Replace("\r", "");
-                            ParseArgs(temp.ToString().Trim(), ref method.args);
-                        }
+                        ParseArgs(reader, ref line, ref lineIndex, ref method);
 
                         // 解析函数体
-                        if (!isDelegate)
                         {
-                            temp.Clear();
+                            StringBuilder temp = new StringBuilder();
                             bool bStart = false;
                             bool bEnd = false;
                             int braceCount = 0;
@@ -215,25 +190,79 @@ namespace ProtobufAutoGenerator.Core
                                 }
 
                                 line = reader.ReadLine();
+                                lineIndex++;
                             }
                             method.body = temp.ToString().Trim();
                         }
 
-                        if (isDelegate)
-                        {
-                            m_delegates.Add(method);
-                        }
-                        else
-                        {
-                            m_methods.Add(method);
-                        }
+                        m_methods.Add(method);
+                    }
+                    else if ((match = m_namespaceRegex.Match(line)).Success)
+                    {
+                        // ...
+                        line = null;
+                    }
+                    else if ((match = m_classNameRegex.Match(line)).Success)
+                    {
+                        // ...
+                        line = null;
                     }
                     else
                     {
                         // discard unexpected string
+                        line = line.Trim();
+                        if (!string.IsNullOrEmpty(line) &&
+                            !line.StartsWith("//") &&
+                            line != "{" &&
+                            line != "}")
+                        {
+                            Console.WriteLine("{0}, Line {1}: 未能识别的行，请检查格式！", filePath, lineIndex);
+                        }
                         line = null;
                     }
                 }
+            }
+        }
+
+        private void ParseArgs(StreamReader reader, ref string line, ref int lineIndex, ref Method method)
+        {
+            int frontIndex = -1;
+            int backIndex = line.IndexOf(')');
+            if (backIndex > 0)
+            {
+                frontIndex = line.IndexOf('(');
+                string args = line.Substring(frontIndex + 1, backIndex - frontIndex - 1);
+                ParseArgs(args.Trim(), ref method.args);
+                line = line.Substring(backIndex + 1).Trim();
+            }
+            else
+            {
+                frontIndex = line.IndexOf('(');
+                StringBuilder temp = new StringBuilder();
+                temp.Append(line.Substring(frontIndex + 1));
+                line = "";
+
+                while (!reader.EndOfStream)
+                {
+                    line = reader.ReadLine();
+                    lineIndex++;
+                    backIndex = line.IndexOf(')');
+                    if (backIndex > 0)
+                    {
+                        temp.Append(line.Substring(backIndex));
+                        line = line.Substring(backIndex + 1).Trim();
+                        break;
+                    }
+                    else
+                    {
+                        temp.Append(line);
+                        line = "";
+                    }
+                }
+
+                temp.Replace("\n", "");
+                temp.Replace("\r", "");
+                ParseArgs(temp.ToString().Trim(), ref method.args);
             }
         }
 

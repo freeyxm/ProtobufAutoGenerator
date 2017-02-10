@@ -41,14 +41,29 @@ namespace ProtobufAutoGenerator.Client
         {
             base.WriteFunctions(indent);
 
+            bool hasSelfDefinedFunc = false;
+
+
             var methods = m_csParser.GetMethods();
             foreach (var method in methods)
             {
                 string msgName = ProtoMsg.ConvertFuncNameToMsgName(method.name);
                 if (!m_proto.ContainsMsg(msgName))
                 {
+                    if (!hasSelfDefinedFunc)
+                    {
+                        hasSelfDefinedFunc = true;
+                        WriteLine("");
+                        WriteLine("// ----------- 自定义函数 ---------------------", indent);
+                        WriteLine("// 协议删除或重命名时，旧函数回移到这里，需要自行手动删除！", indent);
+                    }
                     WriteFunction(method, indent);
                 }
+            }
+
+            if (hasSelfDefinedFunc)
+            {
+                WriteLine("// ----------- 自定义函数 ---------------------", indent);
             }
         }
 
