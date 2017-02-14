@@ -55,7 +55,8 @@ namespace ProtobufAutoGenerator.Client
                         hasSelfDefinedFunc = true;
                         WriteLine("");
                         WriteLine("// ----------- 自定义函数 ---------------------", indent);
-                        WriteLine("// 协议删除或重命名时，旧函数会移到这里，需要自行手动删除！", indent);
+                        WriteLine("// 自定义的函数，会移动到这里。", indent);
+                        WriteLine("// 协议删除或重命名时，旧函数也会移到这里，需要自行手动删除！", indent);
                     }
                     WriteFunction(method, indent);
                 }
