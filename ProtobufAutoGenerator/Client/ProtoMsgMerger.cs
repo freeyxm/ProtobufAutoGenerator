@@ -128,7 +128,7 @@ namespace ProtobufAutoGenerator.Client
             // 函数注释
             WriteFunctionComment(method, indent);
 
-            Write("public static void ", indent).Write(name).Write("(");
+            Write("public static ", indent).Write(method.retType).Write(" ").Write(name).Write("(");
             WriteVariables(method.args);
             WriteLine(")");
 
