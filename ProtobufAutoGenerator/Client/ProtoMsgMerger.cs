@@ -20,20 +20,42 @@ namespace ProtobufAutoGenerator.Client
 
         protected override void WriteFields(int indent)
         {
+            base.WriteFields(indent);
+
             var delegates = m_csParser.GetDelegates();
-            for (int i = 0; i < delegates.Count; ++i)
+            if (delegates.Count > 0)
             {
-                var dgt = delegates[i];
-                Write("", indent);
-                WriteDelegate(dgt);
+                WriteLine("", indent);
+                WriteLine("//------------自定义委托--------------------", indent);
+                for (int i = 0; i < delegates.Count; ++i)
+                {
+                    var dgt = delegates[i];
+                    Write("", indent);
+                    WriteDelegate(dgt);
+                }
+                WriteLine("//------------自定义委托--------------------", indent);
             }
 
             var fields = m_csParser.GetFields();
-            for (int i = 0; i < fields.Count; ++i)
+            if (fields.Count > 0)
             {
-                var field = fields[i];
-                Write("", indent);
-                WriteField(field);
+                WriteLine("", indent);
+                WriteLine("//------------自定义字段--------------------", indent);
+                for (int i = 0; i < fields.Count; ++i)
+                {
+                    var field = fields[i];
+#if REQ_CALLBACK
+                    if (m_reqCallbackFields.Exists((item) => { return item.name == field.var.name; }))
+                        continue;
+#endif
+#if REQ_PRE_MSG
+                    if (m_reqPreMsgFields.Exists((item) => { return item.name == field.var.name; }))
+                        continue;
+#endif
+                    Write("", indent);
+                    WriteField(field);
+                }
+                WriteLine("//------------自定义字段--------------------", indent);
             }
         }
 

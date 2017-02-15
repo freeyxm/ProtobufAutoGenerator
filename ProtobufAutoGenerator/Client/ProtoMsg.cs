@@ -10,6 +10,8 @@ namespace ProtobufAutoGenerator.Client
         public const string MsgNameSpcace = "ProtoMsg";
         protected ProtoParser m_proto;
         protected GameMessageType m_msgType;
+        protected List<ProtoParser.AttrInfo> m_reqCallbackFields = new List<ProtoParser.AttrInfo>();
+        protected List<ProtoParser.AttrInfo> m_reqPreMsgFields = new List<ProtoParser.AttrInfo>();
         private static Dictionary<string, string> m_typeMapping;
 
         public ProtoMsg()
@@ -40,6 +42,13 @@ namespace ProtobufAutoGenerator.Client
                 return;
             }
 
+#if REQ_CALLBACK
+            BuildReqCallbackFields();
+#endif
+#if REQ_PRE_MSG
+            BuildReqPreMsgFields();
+#endif
+
             if (!OpenFile(filePath))
                 return;
 
@@ -62,8 +71,90 @@ namespace ProtobufAutoGenerator.Client
             Close();
         }
 
+        /// <summary>
+        /// 生成请求函数回调字段
+        /// </summary>
+        protected virtual void BuildReqCallbackFields()
+        {
+            m_reqCallbackFields.Clear();
+            foreach (var msg in m_proto.GetMsgs())
+            {
+                if (!m_msgType.ContainsMsg(msg.name))
+                    continue;
+
+                bool isRequest = m_msgType.GetCode(msg.name) > 0;
+                if (!isRequest)
+                    continue;
+
+                var attr = new ProtoParser.AttrInfo();
+                attr.type = "System.Action<int>";
+                attr.name = GetReqCallbackName(msg.name);
+                m_reqCallbackFields.Add(attr);
+            }
+        }
+
+        /// <summary>
+        /// 生成请求函数前一次参数字段
+        /// </summary>
+        protected virtual void BuildReqPreMsgFields()
+        {
+            m_reqPreMsgFields.Clear();
+            foreach (var msg in m_proto.GetMsgs())
+            {
+                if (!m_msgType.ContainsMsg(msg.name))
+                    continue;
+
+                bool isRequest = m_msgType.GetCode(msg.name) > 0;
+                if (!isRequest)
+                    continue;
+
+                var attr = new ProtoParser.AttrInfo();
+                attr.type = msg.name;
+                attr.name = GetReqPreMsgName(msg.name);
+                m_reqPreMsgFields.Add(attr);
+            }
+        }
+
+        protected string GetReqCallbackName(string msgName)
+        {
+            if (msgName.EndsWith("_REQ") || msgName.EndsWith("_RES"))
+                msgName = msgName.Substring(0, msgName.Length - 4);
+            return string.Format("m{0}Callback", ConvertMsgNameToFuncName(msgName));
+        }
+
+        protected string GetReqPreMsgName(string msgName)
+        {
+            return string.Format("m{0}Msg", ConvertMsgNameToFuncName(msgName));
+        }
+
         protected virtual void WriteFields(int indent)
         {
+#if REQ_CALLBACK
+            // 回调属性
+            if (m_reqCallbackFields.Count > 0)
+            {
+                WriteLine("//-------------请求回调---------------------", indent);
+                foreach (var attr in m_reqCallbackFields)
+                {
+                    Write("", indent);
+                    Write("static ").Write(attr.type).Write(" ").Write(attr.name).WriteLine(" = null;");
+                }
+                WriteLine("//-------------请求回调---------------------", indent);
+            }
+#endif
+#if REQ_PRE_MSG
+            if (m_reqPreMsgFields.Count > 0)
+            {
+                WriteLine("", indent);
+                WriteLine("//-----------上次请求参数-------------------", indent);
+                foreach (var attr in m_reqPreMsgFields)
+                {
+                    Write("", indent);
+                    Write("static ").Write(attr.type).Write(" ").Write(attr.name).WriteLine(" = null;");
+                }
+                WriteLine("//-----------上次请求参数-------------------", indent);
+            }
+#endif
         }
 
         protected virtual void WriteFunctions(int indent)
@@ -103,6 +194,11 @@ namespace ProtobufAutoGenerator.Client
                         Write(", ");
                     Write(ConvertType(attr)).Write(" ").Write(attr.name);
                 }
+#if REQ_CALLBACK
+                if (msg.attrs.Count > 0)
+                    Write(", ");
+                Write("System.Action<int> callback = null");
+#endif
             }
             else
             {
@@ -126,11 +222,28 @@ namespace ProtobufAutoGenerator.Client
                     else
                         WriteLine(string.Format("msg.{0} = {1};", pname, attr.name), indent);
                 }
+#if REQ_PRE_MSG
+                string msgName = GetReqPreMsgName(msg.name);
+                WriteLine(string.Format("{0} = msg;", msgName), indent);
+#endif
+#if REQ_CALLBACK
+                string cbName = GetReqCallbackName(msg.name);
+                WriteLine(string.Format("{0} = callback;", cbName), indent);
+#endif
                 WriteLine(string.Format("ClientSession.Instance.Send((int)GameMessageType.{0}, 0, msg);", ConvertMsgNameToFuncName(msg.name)), indent);
             }
             else
             {
-                // null
+#if REQ_CALLBACK
+                string cbName = GetReqCallbackName(msg.name);
+                if (m_reqPreMsgFields.Exists((item) => { return item.name == cbName; }))
+                {
+                    WriteLine(string.Format("if ({0} != null)", cbName), indent);
+                    WriteLine("{", indent);
+                    WriteLine(string.Format("//{0}(msg.result);", cbName), indent + 1);
+                    WriteLine("}", indent);
+                }
+#endif
             }
         }
 
